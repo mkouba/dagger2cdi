@@ -1,0 +1,57 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+   <parent>
+      <groupId>org.jboss.weld</groupId>
+      <artifactId>weld-parent</artifactId>
+      <version>32</version>
+   </parent>
+
+   <modelVersion>4.0.0</modelVersion>
+   <groupId>org.jboss.dagger2cdi</groupId>
+   <artifactId>dagger2cdi</artifactId>
+   <version>0.0.1-SNAPSHOT</version>
+   <name>Dagger 2 to CDI 1.2 adapter</name>
+
+   <properties>
+      <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+      <maven.compiler.source>1.7</maven.compiler.source>
+      <maven.compiler.target>1.7</maven.compiler.target>
+      <version.cdi>1.2</version.cdi>
+      <version.weld>2.3.2.Final</version.weld>
+      <version.dagger>2.0.2</version.dagger>
+      <version.junit>4.11</version.junit>
+   </properties>
+
+   <dependencies>
+
+      <dependency>
+         <groupId>javax.enterprise</groupId>
+         <artifactId>cdi-api</artifactId>
+         <version>${version.cdi}</version>
+      </dependency>
+
+      <dependency>
+         <groupId>com.google.dagger</groupId>
+         <artifactId>dagger</artifactId>
+         <version>${version.dagger}</version>
+      </dependency>
+
+      <!-- Test dependencies -->
+      <dependency>
+         <groupId>junit</groupId>
+         <artifactId>junit</artifactId>
+         <version>${version.junit}</version>
+         <scope>test</scope>
+      </dependency>
+
+      <dependency>
+         <groupId>org.jboss.weld.se</groupId>
+         <artifactId>weld-se</artifactId>
+         <version>${version.weld}</version>
+         <scope>test</scope>
+      </dependency>
+
+   </dependencies>
+
+</project>
