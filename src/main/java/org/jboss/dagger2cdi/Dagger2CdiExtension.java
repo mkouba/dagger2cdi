@@ -19,20 +19,26 @@ package org.jboss.dagger2cdi;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import javax.enterprise.event.Observes;
 import javax.enterprise.inject.Produces;
 import javax.enterprise.inject.spi.Annotated;
 import javax.enterprise.inject.spi.AnnotatedConstructor;
 import javax.enterprise.inject.spi.AnnotatedField;
+import javax.enterprise.inject.spi.AnnotatedMember;
 import javax.enterprise.inject.spi.AnnotatedMethod;
 import javax.enterprise.inject.spi.AnnotatedParameter;
 import javax.enterprise.inject.spi.AnnotatedType;
 import javax.enterprise.inject.spi.BeanAttributes;
+import javax.enterprise.inject.spi.BeanManager;
+import javax.enterprise.inject.spi.BeforeBeanDiscovery;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.ProcessAnnotatedType;
 import javax.enterprise.inject.spi.ProcessBeanAttributes;
@@ -47,24 +53,43 @@ import dagger.Provides;
  * This extension emulates Dagger 2 bindings in a CDI container. In particular, it turns @Provides methods into producer methods and also restricts the set of
  * bean types of a bean (a binding can only have one type and one qualifier).
  *
- * <p>
- * TODO configure types to process (regex)
- *
  * @author Martin Kouba
  */
 public class Dagger2CdiExtension implements Extension {
+
+    public static final String EMULATE_SYSTEM_PROPERTY = "org.jboss.dagger2cdi.emulate";
+
+    private volatile Pattern emulatePattern;
 
     @SuppressWarnings("serial")
     private final static AnnotationLiteral<Produces> PRODUCES_LITERAL = new AnnotationLiteral<Produces>() {
     };
 
+    void beforeBeanDiscovery(@Observes BeforeBeanDiscovery event, BeanManager beanManager) {
+        String emulate = AccessController.doPrivileged(new PrivilegedAction<String>() {
+            @Override
+            public String run() {
+                return System.getProperty(EMULATE_SYSTEM_PROPERTY);
+            }
+        });
+        if (emulate != null) {
+            emulatePattern = Pattern.compile(emulate);
+        }
+    }
+
     <T> void observeProvidesMethods(@WithAnnotations(Provides.class) @Observes ProcessAnnotatedType<T> event) {
+        if (!isEmulated(event.getAnnotatedType())) {
+            return;
+        }
         // Add @Produces to each @Provides method
         event.setAnnotatedType(new WrappedType<T>(event.getAnnotatedType()));
     }
 
     <T> void observeBeanAttributes(@Observes ProcessBeanAttributes<T> event) {
         Annotated annotated = event.getAnnotated();
+        if (!isEmulated(annotated)) {
+            return;
+        }
         // Note that a binding is only constructed for a bean with @Inject constructor or from a @Provides-annotated method
         if (annotated.isAnnotationPresent(Module.class) || annotated.getBaseType().equals(LazyAdaptor.class)) {
             // Modules act as beans defining producers for @Provides methods
@@ -82,6 +107,24 @@ public class Dagger2CdiExtension implements Extension {
             }
         }
         event.veto();
+    }
+
+    private boolean isEmulated(Annotated annotated) {
+        if (emulatePattern == null) {
+            return true;
+        }
+        final Type type;
+        if (annotated instanceof AnnotatedMember) {
+            // AnnotatedField or AnnotatedMethod
+            type = ((AnnotatedMember<?>) annotated).getDeclaringType().getBaseType();
+        } else {
+            type = annotated.getBaseType();
+        }
+        if (type instanceof Class) {
+            final Class<?> clazz = (Class<?>) type;
+            return emulatePattern.matcher(clazz.getName()).matches();
+        }
+        return false;
     }
 
     private class WrappedBeanAttributes<T> implements BeanAttributes<T> {

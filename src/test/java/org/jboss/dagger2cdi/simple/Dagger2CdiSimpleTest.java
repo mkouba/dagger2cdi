@@ -16,7 +16,10 @@
  */
 package org.jboss.dagger2cdi.simple;
 
+import org.jboss.dagger2cdi.Alpha;
+import org.jboss.dagger2cdi.Bravo;
 import org.jboss.dagger2cdi.Dagger2CdiExtension;
+import org.jboss.dagger2cdi.Juicy;
 import org.jboss.dagger2cdi.LazyAdaptor;
 import org.jboss.weld.environment.se.Weld;
 import org.jboss.weld.environment.se.WeldContainer;
@@ -30,9 +33,11 @@ public class Dagger2CdiSimpleTest {
 
     @Test
     public void testCoffeeMaker() {
+        // Run with -Dorg.jboss.dagger2cdi.emulate="org\.jboss\.dagger2cdi\.simple.*"
         try (WeldContainer container = new Weld().disableDiscovery().addExtension(new Dagger2CdiExtension()).packages(CoffeeMaker.class, LazyAdaptor.class)
-                .initialize()) {
+                .beanClasses(Alpha.class, Bravo.class, Juicy.class).initialize()) {
             container.select(CoffeeMaker.class).get().brew();
+            container.select(Pump.class, Juicy.Literal.INSTANCE).get().pump();
         }
     }
 
