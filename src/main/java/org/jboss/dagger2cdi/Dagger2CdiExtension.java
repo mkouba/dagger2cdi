@@ -38,12 +38,17 @@ import javax.enterprise.inject.spi.ProcessAnnotatedType;
 import javax.enterprise.inject.spi.ProcessBeanAttributes;
 import javax.enterprise.inject.spi.WithAnnotations;
 import javax.enterprise.util.AnnotationLiteral;
+import javax.inject.Inject;
 
+import dagger.Module;
 import dagger.Provides;
 
 /**
+ * This extension emulates Dagger 2 bindings in a CDI container. In particular, it turns @Provides methods into producer methods and also restricts the set of
+ * bean types of a bean (a binding can only have one type and one qualifier).
+ *
+ * <p>
  * TODO configure types to process (regex)
- * TODO take qualifiers into account
  *
  * @author Martin Kouba
  */
@@ -53,8 +58,6 @@ public class Dagger2CdiExtension implements Extension {
     private final static AnnotationLiteral<Produces> PRODUCES_LITERAL = new AnnotationLiteral<Produces>() {
     };
 
-    private final Set<Type> providerMethodsReturnTypes = new HashSet<>();
-
     <T> void observeProvidesMethods(@WithAnnotations(Provides.class) @Observes ProcessAnnotatedType<T> event) {
         // Add @Produces to each @Provides method
         event.setAnnotatedType(new WrappedType<T>(event.getAnnotatedType()));
@@ -62,28 +65,23 @@ public class Dagger2CdiExtension implements Extension {
 
     <T> void observeBeanAttributes(@Observes ProcessBeanAttributes<T> event) {
         Annotated annotated = event.getAnnotated();
-        if (!annotated.isAnnotationPresent(Provides.class)) {
-            // If there is a bean with base type satisfied by a provider method, veto such a bean
-            if (providerMethodsReturnTypes.contains(annotated.getBaseType())) {
-                event.veto();
-                return;
-            }
-            Set<Type> found = findProvidedTypes(event.getBeanAttributes().getTypes());
-            if (!found.isEmpty()) {
-                event.setBeanAttributes(new WrappedBeanAttributes<T>(event.getBeanAttributes(), found));
-            }
-        }
-    }
-
-    // TODO qualifiers etc.
-    private Set<Type> findProvidedTypes(Set<Type> types) {
-        Set<Type> found = new HashSet<>();
-        for (Type type : types) {
-            if (providerMethodsReturnTypes.contains(type)) {
-                found.add(type);
+        // Note that a binding is only constructed for a bean with @Inject constructor or from a @Provides-annotated method
+        if (annotated.isAnnotationPresent(Module.class) || annotated.getBaseType().equals(LazyAdaptor.class)) {
+            // Modules act as beans defining producers for @Provides methods
+            return;
+        } else if (annotated.isAnnotationPresent(Provides.class)) {
+            event.setBeanAttributes(new WrappedBeanAttributes<T>(event.getBeanAttributes(), annotated.getBaseType()));
+            return;
+        } else if (annotated instanceof AnnotatedType) {
+            AnnotatedType<?> annotatedType = (AnnotatedType<?>) annotated;
+            for (AnnotatedConstructor<?> constuctor : annotatedType.getConstructors()) {
+                if (constuctor.isAnnotationPresent(Inject.class)) {
+                    event.setBeanAttributes(new WrappedBeanAttributes<T>(event.getBeanAttributes(), annotated.getBaseType()));
+                    return;
+                }
             }
         }
-        return found;
+        event.veto();
     }
 
     private class WrappedBeanAttributes<T> implements BeanAttributes<T> {
@@ -95,12 +93,11 @@ public class Dagger2CdiExtension implements Extension {
         /**
          *
          * @param delegate
-         * @param provided
+         * @param bindingType
          */
-        private WrappedBeanAttributes(BeanAttributes<T> delegate, Set<Type> provided) {
+        private WrappedBeanAttributes(BeanAttributes<T> delegate, Type bindingType) {
             this.delegate = delegate;
-            this.types = new HashSet<>(delegate.getTypes());
-            this.types.removeAll(provided);
+            this.types = Collections.singleton(bindingType);
         }
 
         @Override
@@ -151,7 +148,6 @@ public class Dagger2CdiExtension implements Extension {
             for (AnnotatedMethod<? super X> method : delegate.getMethods()) {
                 if (method.isAnnotationPresent(Provides.class)) {
                     methods.add(new WrappedMethod<>(method));
-                    providerMethodsReturnTypes.add(method.getJavaMember().getGenericReturnType());
                 } else {
                     methods.add(method);
                 }
