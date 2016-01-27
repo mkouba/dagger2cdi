@@ -37,7 +37,7 @@ public class Dagger2CdiSimpleTest {
         try (WeldContainer container = new Weld().disableDiscovery().addExtension(new Dagger2CdiExtension()).packages(CoffeeMaker.class, LazyAdaptor.class)
                 .beanClasses(Alpha.class, Bravo.class, Juicy.class).initialize()) {
             container.select(CoffeeMaker.class).get().brew();
-            container.select(Pump.class, Juicy.Literal.INSTANCE).get().pump();
+            container.select(Bravo.class, Juicy.Literal.INSTANCE).get().ping();
         }
     }
 

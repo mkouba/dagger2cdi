@@ -47,6 +47,7 @@ public class LazyAdaptor<T> implements Lazy<T> {
         this.beanManager = beanManager;
         ParameterizedType parameterizedType = (ParameterizedType) injectionPoint.getType();
         this.requestedType = parameterizedType.getActualTypeArguments()[0];
+        // This will fail for unsatisfied or ambiguous dependency
         this.bean = beanManager.resolve(beanManager.getBeans(requestedType, injectionPoint.getQualifiers().toArray(new Annotation[] {})));
     }
 
@@ -58,6 +59,10 @@ public class LazyAdaptor<T> implements Lazy<T> {
                     instance = (T) beanManager.getReference(bean, requestedType, beanManager.createCreationalContext(bean));
                 }
             }
+        }
+        if (instance == null) {
+            // Follow the Lazy.get() contract
+            throw new NullPointerException();
         }
         return instance;
     }

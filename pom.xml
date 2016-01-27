@@ -21,6 +21,7 @@
       <version.weld>2.3.2.Final</version.weld>
       <version.dagger>2.0.2</version.dagger>
       <version.junit>4.11</version.junit>
+      <version.slf4j>1.7.10</version.slf4j>
    </properties>
 
    <dependencies>
@@ -52,6 +53,29 @@
          <scope>test</scope>
       </dependency>
 
+      <dependency>
+         <groupId>org.slf4j</groupId>
+         <artifactId>slf4j-simple</artifactId>
+         <version>${version.slf4j}</version>
+         <scope>test</scope>
+      </dependency>
+
    </dependencies>
+
+   <build>
+      <plugins>
+         <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+               <systemProperties>
+                  <org.jboss.dagger2cdi.emulate>org\.jboss\.dagger2cdi\.simple.*</org.jboss.dagger2cdi.emulate>
+                  <org.slf4j.simpleLogger.defaultLogLevel>INFO</org.slf4j.simpleLogger.defaultLogLevel>
+                  <org.jboss.logging.provider>slf4j</org.jboss.logging.provider>
+               </systemProperties>
+            </configuration>
+         </plugin>
+      </plugins>
+   </build>
 
 </project>
